@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ImageEdit AI — Real to Anime</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#09090b;color:#fafafa;min-height:100vh}
+
+#loadingScreen{position:fixed;inset:0;z-index:999;background:#09090b;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+.particle{position:absolute;border-radius:50%;background:rgba(168,85,247,0.25);animation:float linear infinite}
+@keyframes float{0%,100%{transform:translateY(0);opacity:0.2}50%{transform:translateY(-35px);opacity:0.7}}
+#loadingLogo{font-size:2.8rem;font-weight:800;background:linear-gradient(135deg,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:pulse 2s infinite;margin-bottom:24px}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+#progressWrap{width:280px;height:5px;background:#27272a;border-radius:10px;overflow:hidden}
+#progressBar{height:100%;background:linear-gradient(90deg,#a855f7,#ec4899);border-radius:10px;width:0%;transition:width 0.25s}
+#loadingText{color:#a1a1aa;font-size:0.85rem;margin-top:14px;font-family:monospace}
+.flash{position:fixed;inset:0;z-index:1000;background:#fff;animation:flashOut 0.6s forwards}
+@keyframes flashOut{0%{opacity:1}100%{opacity:0}}
+
+#app{display:none;max-width:700px;margin:0 auto;padding:40px 20px 60px}
+header{text-align:center;margin-bottom:32px}
+header h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+header p{color:#a1a1aa}
+
+.card{background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;margin-bottom:20px}
+.card label{display:block;font-weight:600;margin-bottom:8px;color:#d4d4d8}
+textarea{width:100%;height:80px;background:#09090b;border:1px solid #27272a;border-radius:10px;padding:12px;color:#fafafa;font-size:0.9rem;resize:none;outline:none;font-family:inherit}
+textarea:focus{border-color:#a855f7}
+select{width:100%;padding:12px;background:#09090b;border:1px solid #27272a;border-radius:10px;color:#fafafa;font-size:0.9rem;outline:none;cursor:pointer}
+select:focus{border-color:#a855f7}
+
+.upload-zone{border:2px dashed #3f3f46;border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:all 0.3s}
+.upload-zone:hover{border-color:#a855f7;background:rgba(168,85,247,0.05)}
+.upload-zone img{max-width:100%;max-height:250px;border-radius:8px;margin-top:12px;display:none}
+.upload-zone .icon{font-size:2.5rem;margin-bottom:8px}
+
+.btn{width:100%;padding:14px;border-radius:12px;border:none;font-weight:700;font-size:1rem;cursor:pointer;transition:all 0.2s;background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff}
+.btn:hover{opacity:0.9;transform:translateY(-1px)}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+
+.loading-dots{display:none;justify-content:center;gap:6px;padding:20px}
+.loading-dots span{width:10px;height:10px;border-radius:50%;background:#a855f7;animation:bounce 0.6s infinite alternate}
+.loading-dots span:nth-child(2){animation-delay:0.2s}
+.loading-dots span:nth-child(3){animation-delay:0.4s}
+@keyframes bounce{to{transform:translateY(-10px);opacity:0.4}}
+
+.result-box{display:none;background:#18181b;border:1px solid #27272a;border-radius:16px;padding:20px;text-align:center}
+.result-box img{max-width:100%;border-radius:10px}
+.result-box .download-btn{display:inline-block;margin-top:16px;padding:12px 24px;background:#a855f7;color:#fff;text-decoration:none;border-radius:10px;font-weight:600}
+.error-text{color:#f87171;text-align:center;display:none;padding:12px}
+
+.token-info{display:flex;align-items:center;justify-content:space-between;background:#18181b;border:1px solid #27272a;border-radius:10px;padding:12px 16px;margin-bottom:20px}
+.token-info span{font-size:0.85rem;color:#a1a1aa}
+.token-info button{background:#27272a;color:#d4d4d8;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:0.8rem}
+
+.modal{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);align-items:center;justify-content:center;padding:20px}
+.modal.active{display:flex}
+.modal-content{background:#18181b;border:1px solid #27272a;border-radius:16px;padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto}
+.modal-content h3{margin-bottom:12px}
+.modal-content p{font-size:0.85rem;color:#a1a1aa;margin-bottom:12px;line-height:1.6}
+.modal-content input{width:100%;padding:12px;background:#09090b;border:1px solid #27272a;border-radius:10px;color:#fafafa;font-size:0.9rem;outline:none;margin-bottom:10px}
+.modal-content input:focus{border-color:#a855f7}
+.modal-content a{display:block;text-align:center;background:#a855f7;color:#fff;text-decoration:none;padding:12px;border-radius:10px;font-weight:600;margin-bottom:10px}
+.modal-content .close-btn{background:#27272a;color:#d4d4d8;width:100%;padding:10px;border:none;border-radius:10px;cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div id="particlesContainer"></div>
+  <div id="loadingLogo">ImageEdit AI</div>
+  <div id="progressWrap"><div id="progressBar"></div></div>
+  <div id="loadingText"></div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>ImageEdit AI</h1>
+    <p>Ubah foto jadi anime, kartun, atau gaya lainnya — gratis pakai AI</p>
+  </header>
+
+  <div class="token-info">
+    <span id="tokenStatus">📦 Token: 1 aktif</span>
+    <button onclick="openTokenModal()">➕ Tambah Token</button>
+  </div>
+
+  <div class="card">
+    <label>🖼️ Upload Foto</label>
+    <div class="upload-zone" id="uploadZone">
+      <div class="icon">📸</div>
+      <p>Tap untuk pilih foto</p>
+      <p style="font-size:0.8rem;color:#71717a;margin-top:4px">JPG, PNG, WebP — maks 10MB</p>
+      <img id="preview" alt="preview">
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
+  </div>
+
+  <div class="card">
+    <label>✍️ Prompt</label>
+    <textarea id="promptInput" placeholder="Contoh: ubah jadi anime style, rambut pink, mata besar, background cherry blossom"></textarea>
+  </div>
+
+  <div class="card">
+    <label>🎨 Gaya / LoRA</label>
+    <select id="loraSelect">
+      <option value="Photo-to-Anime">Photo-to-Anime</option>
+      <option value="Anime-to-Photo">Anime-to-Photo</option>
+      <option value="Sketch-to-Color">Sketch-to-Color</option>
+    </select>
+  </div>
+
+  <button class="btn" id="btnProcess" disabled>⚡ Proses Gambar</button>
+  <div class="loading-dots" id="loadingDots"><span></span><span></span><span></span></div>
+  <p class="error-text" id="errorText"></p>
+
+  <div class="result-box" id="resultBox">
+    <h3 style="margin-bottom:12px">✅ Hasil</h3>
+    <img id="resultImage" alt="hasil">
+    <a class="download-btn" id="downloadBtn" download="hasil-edit.jpg">⬇️ Download</a>
+  </div>
+</div>
+
+<!-- Modal Token -->
+<div class="modal" id="tokenModal">
+  <div class="modal-content">
+    <h3>➕ Tambah Token HF Baru</h3>
+    <p>1. Klik tombol di bawah untuk buka halaman token HuggingFace<br>
+       2. Login/daftar akun HF kalau belum punya<br>
+       3. Klik "Create new token" → pilih role "Write"<br>
+       4. Copy tokennya (format: hf_xxxxxxxx)<br>
+       5. Paste di input bawah, klik Simpan</p>
+    <a href="https://huggingface.co/settings/tokens" target="_blank">🔗 Buka halaman token HF</a>
+    <input type="text" id="newToken" placeholder="hf_xxxxxxxxxxxxxxxx">
+    <button class="close-btn" onclick="saveToken()">💾 Simpan Token</button>
+    <button class="close-btn" style="margin-top:8px" onclick="closeTokenModal()">❌ Tutup</button>
+  </div>
+</div>
+
+<script>
+const pc = document.getElementById('particlesContainer');
+for(let i=0;i<50;i++){
+  const p=document.createElement('div');p.className='particle';
+  p.style.left=Math.random()*100+'%';p.style.top=Math.random()*100+'%';
+  p.style.width=p.style.height=(Math.random()*3+1)+'px';
+  p.style.animationDuration=(Math.random()*3+2)+'s';
+  pc.appendChild(p);
+}
+const lt=document.getElementById('loadingText');
+const full='Menyiapkan AI engine...';let ci=0;
+const ti=setInterval(()=>{if(ci<=full.length){lt.textContent=full.slice(0,ci)+'|';ci++;}else clearInterval(ti);},65);
+let prog=0;const pb=document.getElementById('progressBar');
+const pi=setInterval(()=>{prog=Math.min(prog+Math.floor(Math.random()*10+5),100);pb.style.width=prog+'%';
+if(prog>=100){clearInterval(pi);const f=document.createElement('div');f.className='flash';document.body.appendChild(f);
+setTimeout(()=>{document.getElementById('loadingScreen').style.display='none';document.getElementById('app').style.display='block';f.remove();},550);}},170);
+
+const uploadZone=document.getElementById('uploadZone');
+const fileInput=document.getElementById('fileInput');
+const preview=document.getElementById('preview');
+const promptInput=document.getElementById('promptInput');
+const loraSelect=document.getElementById('loraSelect');
+const btnProcess=document.getElementById('btnProcess');
+const loadingDots=document.getElementById('loadingDots');
+const errorText=document.getElementById('errorText');
+const resultBox=document.getElementById('resultBox');
+const resultImage=document.getElementById('resultImage');
+const downloadBtn=document.getElementById('downloadBtn');
+const tokenStatus=document.getElementById('tokenStatus');
+const tokenModal=document.getElementById('tokenModal');
+const newTokenInput=document.getElementById('newToken');
+
+let imageBase64='';
+let lastRequestTime=0;
+const COOLDOWN=10000;
+
+async function updateTokenStatus(){
+  try{
+    const res=await fetch('/api/tokens');
+    const data=await res.json();
+    tokenStatus.textContent=`📦 Token: ${data.tokens} aktif`;
+  }catch{}
+}
+updateTokenStatus();
+
+uploadZone.addEventListener('click',()=>fileInput.click());
+uploadZone.addEventListener('dragover',e=>{e.preventDefault();uploadZone.style.borderColor='#a855f7';});
+uploadZone.addEventListener('dragleave',()=>{uploadZone.style.borderColor='#3f3f46';});
+uploadZone.addEventListener('drop',e=>{e.preventDefault();uploadZone.style.borderColor='#3f3f46';if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});
+fileInput.addEventListener('change',e=>{if(e.target.files[0])handleFile(e.target.files[0]);});
+
+function handleFile(file){
+  if(!file.type.startsWith('image/')){alert('File harus gambar!');return;}
+  if(file.size>10*1024*1024){alert('Maksimal 10MB!');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{imageBase64=e.target.result;preview.src=e.target.result;preview.style.display='block';
+  document.querySelector('.upload-zone .icon').style.display='none';updateBtn();};
+  reader.readAsDataURL(file);
+}
+
+promptInput.addEventListener('input',updateBtn);
+function updateBtn(){btnProcess.disabled=!imageBase64||!promptInput.value.trim();}
+
+btnProcess.addEventListener('click',async()=>{
+  const now=Date.now();
+  if(now-lastRequestTime<COOLDOWN){
+    alert(`Tunggu ${Math.ceil((COOLDOWN-(now-lastRequestTime))/1000)} detik lagi`);
+    return;
+  }
+  lastRequestTime=now;
+  btnProcess.disabled=true;btnProcess.textContent='⏳ Processing...';
+  loadingDots.style.display='flex';errorText.style.display='none';resultBox.style.display='none';
+  try{
+    const res=await fetch('/api/edit',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({imageBase64,prompt:promptInput.value.trim(),lora:loraSelect.value})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Gagal');
+    resultImage.src=data.image;
+    downloadBtn.href=data.image;
+    resultBox.style.display='block';
+    updateTokenStatus();
+  }catch(err){
+    errorText.textContent='❌ '+err.message+'\n\nJika limit, klik "Tambah Token" di atas.';
+    errorText.style.display='block';
+  }finally{
+    loadingDots.style.display='none';
+    btnProcess.disabled=false;btnProcess.textContent='⚡ Proses Gambar';
+  }
+});
+
+function openTokenModal(){tokenModal.classList.add('active');}
+function closeTokenModal(){tokenModal.classList.remove('active');newTokenInput.value='';}
+
+async function saveToken(){
+  const token=newTokenInput.value.trim();
+  if(!token.startsWith('hf_')){alert('Token harus diawali hf_');return;}
+  try{
+    const res=await fetch('/api/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
+    const data=await res.json();
+    if(res.ok){
+      alert('✅ Token berhasil ditambahkan!');
+      closeTokenModal();
+      updateTokenStatus();
+    }else{
+      alert('❌ '+data.error);
+    }
+  }catch(err){
+    alert('❌ Gagal simpan token');
+  }
+}
+</script>
+</body>
+  </html>
